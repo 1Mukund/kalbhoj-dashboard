@@ -470,15 +470,14 @@ def render_booking_view(df: pd.DataFrame, kpis: dict):
         if "project" in df.columns:
             proj = df.groupby("project").apply(
                 lambda g: pd.Series({
-                    "Total": len(g),
+                    "Total":  len(g),
                     "Booked": g.apply(lambda r: _is_booked_row(r), axis=1).sum(),
-                    "Done":   g.apply(lambda r: _is_done_row(r), axis=1).sum(),
                 })
             ).reset_index()
             fig = px.bar(
-                proj, x="project", y=["Total", "Booked", "Done"],
+                proj, x="project", y=["Total", "Booked"],
                 barmode="group",
-                color_discrete_sequence=["#7c6af7", "#ffab40", "#00e676"],
+                color_discrete_sequence=["#1f6feb", "#d29922"],
                 title="Project-wise Booking Breakdown",
             )
             _chart_layout(fig)
