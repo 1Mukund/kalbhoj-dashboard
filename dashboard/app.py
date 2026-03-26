@@ -447,9 +447,9 @@ def main():
         ("🏠 Bookings",      True),
         ("📋 Kalbhoj Report",True),
         ("🚨 Risk",          role == "admin"),   # admin only
-        ("📈 Trends",        True),
+        ("📈 Trends",        role == "admin"),   # admin only
         ("🔍 Drilldown",     True),
-        ("📤 Export",        True),
+        ("📤 Export",        role == "admin"),   # admin only
     ]
 
     visible_tabs = [label for label, visible in tab_defs if visible]
