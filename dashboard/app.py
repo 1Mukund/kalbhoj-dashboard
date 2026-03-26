@@ -439,17 +439,17 @@ def main():
 
     # --- Role-based tab list ---
     tab_defs = [
-        ("📊 Summary",       True),
+        ("📋 Kalbhoj Report",True),
         ("🔽 Funnel",        True),
         ("📡 Channels",      True),
         ("💬 WhatsApp",      True),
         ("📞 Calling",       True),
         ("🏠 Bookings",      True),
-        ("📋 Kalbhoj Report",True),
-        ("🚨 Risk",          role == "admin"),   # admin only
-        ("📈 Trends",        role == "admin"),   # admin only
         ("🔍 Drilldown",     True),
-        ("📤 Export",        role == "admin"),   # admin only
+        ("🚨 Risk",          role == "admin"),
+        ("📈 Trends",        role == "admin"),
+        ("📤 Export",        role == "admin"),
+        ("📊 Summary",       True),
     ]
 
     visible_tabs = [label for label, visible in tab_defs if visible]
