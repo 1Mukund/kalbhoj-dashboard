@@ -314,8 +314,8 @@ THRESHOLDS = {
     # WhatsApp statuses that mean "replied"
     "periskope_replied_values": ["true", "yes", "1", True, 1],
 
-    # Cache TTL in seconds (5 minutes)
-    "cache_ttl_seconds": 300,
+    # Cache TTL in seconds (15 minutes — keeps API quota safe)
+    "cache_ttl_seconds": 900,
 
     # Indian phone number prefix patterns (used for Indian vs International split)
     "indian_phone_prefixes": ["91", "+91"],

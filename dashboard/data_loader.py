@@ -69,38 +69,45 @@ def load_sheet(sheet_key: str) -> tuple[pd.DataFrame | None, str]:
 
     # --- Option 2: Service Account ---
     if USE_SERVICE_ACCOUNT:
-        try:
-            client = get_gspread_client()
-            spreadsheet = client.open_by_key(cfg["spreadsheet_id"])
-            worksheet = spreadsheet.worksheet(cfg["tab_name"])
-            # Use get_all_values to handle duplicate headers gracefully
-            all_values = worksheet.get_all_values()
-            if not all_values or len(all_values) < 2:
-                return pd.DataFrame(), f"⚠️ '{sheet_key}' loaded but is empty."
-            headers = all_values[0]
-            # Deduplicate headers by appending _2, _3 etc.
-            seen = {}
-            clean_headers = []
-            for h in headers:
-                if h in seen:
-                    seen[h] += 1
-                    clean_headers.append(f"{h}_{seen[h]}")
-                else:
-                    seen[h] = 1
-                    clean_headers.append(h)
-            rows = all_values[1:]
-            df = pd.DataFrame(rows, columns=clean_headers)
-            df = df.replace("", pd.NA)
-            df = _rename_and_normalize(df, col_map, sheet_key)
-            return df, f"✅ '{sheet_key}' loaded ({len(df)} rows)"
-        except gspread.exceptions.SpreadsheetNotFound:
-            return None, f"❌ '{sheet_key}': Spreadsheet not found. Check spreadsheet_id in config."
-        except gspread.exceptions.WorksheetNotFound:
-            return None, f"❌ '{sheet_key}': Tab '{cfg['tab_name']}' not found. Check tab_name in config."
-        except FileNotFoundError:
-            return None, f"❌ Service account file not found at: {SERVICE_ACCOUNT_FILE}"
-        except Exception as e:
-            return None, f"❌ '{sheet_key}' failed to load: {e}"
+        for attempt in range(3):  # retry up to 3 times on 429
+            try:
+                client = get_gspread_client()
+                spreadsheet = client.open_by_key(cfg["spreadsheet_id"])
+                worksheet = spreadsheet.worksheet(cfg["tab_name"])
+                all_values = worksheet.get_all_values()
+                if not all_values or len(all_values) < 2:
+                    return pd.DataFrame(), f"⚠️ '{sheet_key}' loaded but is empty."
+                headers = all_values[0]
+                seen = {}
+                clean_headers = []
+                for h in headers:
+                    if h in seen:
+                        seen[h] += 1
+                        clean_headers.append(f"{h}_{seen[h]}")
+                    else:
+                        seen[h] = 1
+                        clean_headers.append(h)
+                rows = all_values[1:]
+                df = pd.DataFrame(rows, columns=clean_headers)
+                df = df.replace("", pd.NA)
+                df = _rename_and_normalize(df, col_map, sheet_key)
+                return df, f"✅ '{sheet_key}' loaded ({len(df)} rows)"
+            except gspread.exceptions.APIError as e:
+                if "429" in str(e) and attempt < 2:
+                    import time
+                    time.sleep(10 * (attempt + 1))  # wait 10s, then 20s
+                    continue
+                elif "429" in str(e):
+                    return None, f"❌ '{sheet_key}' rate limited (429). Will retry on next refresh."
+                raise
+            except gspread.exceptions.SpreadsheetNotFound:
+                return None, f"❌ '{sheet_key}': Spreadsheet not found. Check spreadsheet_id in config."
+            except gspread.exceptions.WorksheetNotFound:
+                return None, f"❌ '{sheet_key}': Tab '{cfg['tab_name']}' not found. Check tab_name in config."
+            except FileNotFoundError:
+                return None, f"❌ Service account file not found at: {SERVICE_ACCOUNT_FILE}"
+            except Exception as e:
+                return None, f"❌ '{sheet_key}' failed to load: {e}"
 
     return None, f"❌ '{sheet_key}': No load method configured (set USE_SERVICE_ACCOUNT or USE_PUBLIC_CSV)."
 
@@ -136,8 +143,13 @@ def load_all_sheets() -> tuple[dict, dict]:
     data = {}
     statuses = {}
 
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        future_to_key = {executor.submit(load_sheet, key): key for key in enabled_keys}
+    # Load sheets with staggered start to avoid 429 rate limits
+    import time
+    with ThreadPoolExecutor(max_workers=3) as executor:  # max 3 concurrent
+        future_to_key = {}
+        for i, key in enumerate(enabled_keys):
+            time.sleep(0.5 * i)  # stagger by 0.5s each
+            future_to_key[executor.submit(load_sheet, key)] = key
         for future in as_completed(future_to_key):
             key = future_to_key[future]
             try:
