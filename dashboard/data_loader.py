@@ -26,8 +26,14 @@ SCOPES = [
 # -----------------------------------------------------------------------------
 @st.cache_resource
 def get_gspread_client():
-    """Authenticate and return a gspread client using service account."""
-    creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    """Authenticate using Streamlit Secrets (deploy) or local JSON file (local)."""
+    try:
+        # Streamlit Cloud — secrets mein credentials hain
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+    except (KeyError, FileNotFoundError):
+        # Local — JSON file se
+        creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     return gspread.authorize(creds)
 
 
