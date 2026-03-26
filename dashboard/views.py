@@ -805,19 +805,19 @@ def render_kalbhoj_report(data: dict):
         st.warning("Kalbhojaditya report sheets not loaded.")
         return
 
-    tab1, tab2 = st.tabs(["📅 Daily Report", "📈 Cumulative Report"])
+    tab1, tab2 = st.tabs(["📈 Cumulative Report", "📅 Daily Report"])
 
     with tab1:
-        if daily is None or daily.empty:
-            st.info("Daily report not available.")
-        else:
-            _render_report_section(daily, "Daily")
-
-    with tab2:
         if cumul is None or cumul.empty:
             st.info("Cumulative report not available.")
         else:
             _render_report_section(cumul, "Cumulative")
+
+    with tab2:
+        if daily is None or daily.empty:
+            st.info("Daily report not available.")
+        else:
+            _render_report_section(daily, "Daily")
 
 
 def _render_report_section(df: pd.DataFrame, label: str):
