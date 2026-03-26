@@ -829,12 +829,34 @@ def _render_report_section(df: pd.DataFrame, label: str):
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
 
-    # --- Summary KPI cards from latest/total ---
-    total_assigned      = int(df["assigned_leads"].sum()) if "assigned_leads" in df.columns else 0
-    total_sv_booked     = int(df["site_visit_booked"].sum()) if "site_visit_booked" in df.columns else 0
-    total_sv_done       = int(df["site_visit_done"].sum()) if "site_visit_done" in df.columns else 0
-    total_flat_blocked  = int(df["flat_blocked"].sum()) if "flat_blocked" in df.columns else 0
-    total_sale_closure  = int(df["sale_closure"].sum()) if "sale_closure" in df.columns else 0
+    # Parse dates first
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"], dayfirst=True, errors="coerce")
+        df = df.dropna(subset=["date"]).sort_values("date").reset_index(drop=True)
+
+    # For cumulative report — compute running totals
+    is_cumulative = label == "Cumulative"
+    if is_cumulative:
+        for col in num_cols:
+            if col in df.columns:
+                df[col] = df[col].cumsum()
+
+    # --- Summary KPI cards ---
+    if is_cumulative:
+        # Show latest row (running total)
+        last = df.iloc[-1] if not df.empty else {}
+        total_assigned     = int(last.get("assigned_leads", 0))
+        total_sv_booked    = int(last.get("site_visit_booked", 0))
+        total_sv_done      = int(last.get("site_visit_done", 0))
+        total_flat_blocked = int(last.get("flat_blocked", 0))
+        total_sale_closure = int(last.get("sale_closure", 0))
+    else:
+        # Daily — sum all rows
+        total_assigned     = int(df["assigned_leads"].sum()) if "assigned_leads" in df.columns else 0
+        total_sv_booked    = int(df["site_visit_booked"].sum()) if "site_visit_booked" in df.columns else 0
+        total_sv_done      = int(df["site_visit_done"].sum()) if "site_visit_done" in df.columns else 0
+        total_flat_blocked = int(df["flat_blocked"].sum()) if "flat_blocked" in df.columns else 0
+        total_sale_closure = int(df["sale_closure"].sum()) if "sale_closure" in df.columns else 0
 
     sv_booking_rate = round(total_sv_booked / total_assigned * 100, 1) if total_assigned > 0 else 0
     sv_done_rate    = round(total_sv_done / total_sv_booked * 100, 1) if total_sv_booked > 0 else 0
@@ -853,9 +875,8 @@ def _render_report_section(df: pd.DataFrame, label: str):
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
     # --- Date trend chart ---
-    if "date" in df.columns:
-        df["date"] = pd.to_datetime(df["date"], dayfirst=True, errors="coerce")
-        df_sorted = df.dropna(subset=["date"]).sort_values("date")
+    if "date" in df.columns and not df.empty:
+        df_sorted = df.copy()
 
         col_a, col_b = st.columns(2)
 
