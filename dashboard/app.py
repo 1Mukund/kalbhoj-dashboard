@@ -39,52 +39,87 @@ IST = pytz.timezone(TIMEZONE)
 CARD_CSS_LOGIN = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
 * { font-family: 'Inter', sans-serif !important; }
 
 .stApp {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-    min-height: 100vh;
+    background: radial-gradient(ellipse at 30% 20%, #0d1f3c 0%, #0a0a0f 50%, #0d0d1a 100%) !important;
 }
+
+/* Glowing orbs */
+.stApp::before {
+    content: '';
+    position: fixed;
+    top: -200px; left: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(31,111,235,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+}
+.stApp::after {
+    content: '';
+    position: fixed;
+    bottom: -200px; right: -200px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Input field */
 .stTextInput input {
-    background: rgba(255,255,255,0.95) !important;
-    color: #1a1a2e !important;
-    border: 2px solid rgba(255,255,255,0.3) !important;
-    border-radius: 12px !important;
-    padding: 12px 16px !important;
+    background: rgba(255,255,255,0.05) !important;
+    color: #e6edf3 !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    border-radius: 10px !important;
+    padding: 14px 16px !important;
     font-size: 15px !important;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+    box-shadow: 0 0 0 0 transparent !important;
+    transition: border 0.2s, box-shadow 0.2s !important;
 }
 .stTextInput input:focus {
-    border-color: #667eea !important;
-    box-shadow: 0 0 0 3px rgba(102,126,234,0.2) !important;
+    border: 1px solid #1f6feb !important;
+    box-shadow: 0 0 16px rgba(31,111,235,0.25) !important;
+    background: rgba(31,111,235,0.06) !important;
 }
-.stTextInput label { color: rgba(255,255,255,0.9) !important; font-weight: 600 !important; }
+.stTextInput input::placeholder { color: rgba(255,255,255,0.2) !important; }
+.stTextInput label { display: none !important; }
+
+/* Form card */
 .stForm {
-    background: rgba(255,255,255,0.12) !important;
-    backdrop-filter: blur(20px) !important;
-    border: 1px solid rgba(255,255,255,0.25) !important;
-    border-radius: 24px !important;
-    padding: 40px 36px !important;
-    box-shadow: 0 25px 50px rgba(0,0,0,0.2) !important;
+    background: rgba(255,255,255,0.04) !important;
+    backdrop-filter: blur(24px) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 20px !important;
+    padding: 36px 32px !important;
+    box-shadow: 0 0 60px rgba(31,111,235,0.08), 0 25px 50px rgba(0,0,0,0.4) !important;
 }
+
+/* Submit button */
 .stFormSubmitButton button {
-    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+    background: linear-gradient(135deg, #1f6feb, #7c3aed) !important;
     color: white !important;
     border: none !important;
-    border-radius: 12px !important;
+    border-radius: 10px !important;
     font-weight: 700 !important;
     font-size: 15px !important;
-    padding: 14px !important;
-    margin-top: 12px !important;
-    box-shadow: 0 8px 25px rgba(102,126,234,0.4) !important;
-    transition: all 0.3s ease !important;
+    padding: 13px !important;
+    margin-top: 10px !important;
+    box-shadow: 0 0 24px rgba(31,111,235,0.35) !important;
     width: 100% !important;
+    transition: all 0.2s !important;
 }
 .stFormSubmitButton button:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 12px 30px rgba(102,126,234,0.5) !important;
+    box-shadow: 0 0 36px rgba(31,111,235,0.55) !important;
+    transform: translateY(-1px) !important;
 }
+
+/* Hide streamlit chrome */
+header { display: none !important; }
+#MainMenu { display: none !important; }
+footer { display: none !important; }
+[data-testid="stSidebarCollapseButton"] { display: none !important; }
 </style>
 """
 
@@ -226,7 +261,7 @@ def render_login():
 
         with st.form("login_form"):
             st.markdown('<p style="color:rgba(255,255,255,0.7);font-size:13px;margin-bottom:4px">Enter your username to continue</p>', unsafe_allow_html=True)
-            username = st.text_input("Username", placeholder="admin_kaalbhoj  or  user_kb", label_visibility="collapsed")
+            username = st.text_input("Username", placeholder="", label_visibility="collapsed")
             submitted = st.form_submit_button("Continue →", use_container_width=True)
 
             if submitted:
