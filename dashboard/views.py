@@ -237,29 +237,43 @@ def render_channel_performance(df: pd.DataFrame):
             st.info("No channel data available.")
 
     with col_b:
-        if "assigned_channel" in df.columns and "wa_replied" in df.columns:
-            grp = df.groupby("assigned_channel").agg(
-                total=("phone_norm", "count"),
-                replied=("wa_replied", lambda x: x.apply(lambda v: v is True).sum()),
-            ).reset_index()
-            grp["reply_rate"] = (grp["replied"] / grp["total"] * 100).round(1)
-            fig = px.bar(
-                grp, x="assigned_channel", y="reply_rate",
-                color="reply_rate",
-                color_continuous_scale=["#ff5252", "#ffab40", "#00e676"],
-                title="WA Reply Rate by Channel (%)",
-                labels={"assigned_channel": "Channel", "reply_rate": "Reply Rate %"},
-                text="reply_rate",
-            )
-            fig.update_traces(
-                texttemplate="%{text}%",
-                textposition="outside",
-                hovertemplate="<b>%{x}</b><br>Reply Rate: %{y}%<extra></extra>",
-            )
-            _chart_layout(fig)
-            st.plotly_chart(fig, use_container_width=True)
+        if "assigned_channel" in df.columns:
+            chart_rows = []
+            for ch, grp in df.groupby("assigned_channel"):
+                total = len(grp)
+                ch_lower = str(ch).lower()
+                if "arrowhead" in ch_lower:
+                    triggered = grp["ah_triggered_at"].notna().sum() if "ah_triggered_at" in grp.columns else 0
+                    connected = grp["ah_call_status"].isin(THRESHOLDS["arrowhead_connected_statuses"]).sum() if "ah_call_status" in grp.columns else 0
+                    rate = round(connected / triggered * 100, 1) if triggered > 0 else 0
+                    label = f"Call Connect ({connected}/{triggered})"
+                else:
+                    sent = grp["wa_status"].isin(THRESHOLDS["periskope_sent_statuses"]).sum() if "wa_status" in grp.columns else total
+                    replied = grp["wa_replied"].apply(lambda x: x is True or str(x).lower() in {"true","yes","1"}).sum() if "wa_replied" in grp.columns else 0
+                    rate = round(replied / sent * 100, 1) if sent > 0 else 0
+                    label = f"WA Reply ({replied}/{sent})"
+                chart_rows.append({"Channel": ch, "Rate": rate, "Metric": label})
+
+            if chart_rows:
+                import pandas as _pd
+                chart_df = _pd.DataFrame(chart_rows)
+                fig = px.bar(
+                    chart_df, x="Channel", y="Rate",
+                    color="Rate",
+                    color_continuous_scale=["#f85149", "#d29922", "#3fb950"],
+                    title="Channel Performance Rate (%)",
+                    text="Rate",
+                    hover_data={"Metric": True, "Rate": True},
+                )
+                fig.update_traces(
+                    texttemplate="%{text}%",
+                    textposition="outside",
+                    hovertemplate="<b>%{x}</b><br>%{customdata[0]}<br>Rate: %{y}%<extra></extra>",
+                )
+                _chart_layout(fig)
+                st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("Channel + reply data not available.")
+            st.info("Channel data not available.")
 
 
 # =============================================================================
