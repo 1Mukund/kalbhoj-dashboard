@@ -484,14 +484,16 @@ def main():
         with tabs[idx["🚨 Risk"]]:
             views.render_operational_risk(filtered_df, kpis)
 
-    with tabs[idx["📈 Trends"]]:
-        views.render_trends(filtered_df)
+    if role == "admin":
+        with tabs[idx["📈 Trends"]]:
+            views.render_trends(filtered_df)
 
     with tabs[idx["🔍 Drilldown"]]:
         views.render_lead_drilldown(filtered_df)
 
-    with tabs[idx["📤 Export"]]:
-        views.render_export_tables(filtered_df)
+    if role == "admin":
+        with tabs[idx["📤 Export"]]:
+            views.render_export_tables(filtered_df)
 
     # Logout button in sidebar
     st.sidebar.markdown("---")
