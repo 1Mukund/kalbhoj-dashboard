@@ -821,52 +821,51 @@ def render_kalbhoj_report(data: dict):
 
 
 def _render_report_section(df: pd.DataFrame, label: str):
-    import numpy as np
 
-    # Clean numeric columns
     num_cols = ["assigned_leads", "site_visit_booked", "site_visit_done", "flat_blocked", "sale_closure"]
     for col in num_cols:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
 
-    # Parse dates first
     if "date" in df.columns:
         df["date"] = pd.to_datetime(df["date"], dayfirst=True, errors="coerce")
         df = df.dropna(subset=["date"]).sort_values("date").reset_index(drop=True)
 
-    # For cumulative report — compute running totals
     is_cumulative = label == "Cumulative"
-    if is_cumulative:
-        for col in num_cols:
-            if col in df.columns:
-                df[col] = df[col].cumsum()
 
-    # --- Summary KPI cards ---
+    # For cumulative — build running total df for charts
     if is_cumulative:
-        # Show latest row (running total)
-        last = df.iloc[-1] if not df.empty else {}
+        df_display = df.copy()
+        for col in num_cols:
+            if col in df_display.columns:
+                df_display[col] = df_display[col].cumsum()
+        last = df_display.iloc[-1] if not df_display.empty else {}
         total_assigned     = int(last.get("assigned_leads", 0))
         total_sv_booked    = int(last.get("site_visit_booked", 0))
         total_sv_done      = int(last.get("site_visit_done", 0))
         total_flat_blocked = int(last.get("flat_blocked", 0))
         total_sale_closure = int(last.get("sale_closure", 0))
+        card_sub = "Overall total"
     else:
-        # Daily — sum all rows
-        total_assigned     = int(df["assigned_leads"].sum()) if "assigned_leads" in df.columns else 0
-        total_sv_booked    = int(df["site_visit_booked"].sum()) if "site_visit_booked" in df.columns else 0
-        total_sv_done      = int(df["site_visit_done"].sum()) if "site_visit_done" in df.columns else 0
-        total_flat_blocked = int(df["flat_blocked"].sum()) if "flat_blocked" in df.columns else 0
-        total_sale_closure = int(df["sale_closure"].sum()) if "sale_closure" in df.columns else 0
+        df_display = df.copy()
+        # KPI = latest day's values
+        last = df_display.iloc[-1] if not df_display.empty else {}
+        total_assigned     = int(last.get("assigned_leads", 0))
+        total_sv_booked    = int(last.get("site_visit_booked", 0))
+        total_sv_done      = int(last.get("site_visit_done", 0))
+        total_flat_blocked = int(last.get("flat_blocked", 0))
+        total_sale_closure = int(last.get("sale_closure", 0))
+        card_sub = "Latest day"
 
     sv_booking_rate = round(total_sv_booked / total_assigned * 100, 1) if total_assigned > 0 else 0
     sv_done_rate    = round(total_sv_done / total_sv_booked * 100, 1) if total_sv_booked > 0 else 0
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    with c1: kpi_card("Leads Assigned",    total_assigned)
-    with c2: kpi_card("Site Visit Booked", total_sv_booked)
-    with c3: kpi_card("Site Visit Done",   total_sv_done)
-    with c4: kpi_card("Flat Blocked",      total_flat_blocked)
-    with c5: kpi_card("Sale Closure",      total_sale_closure)
+    with c1: kpi_card("Leads Assigned",    total_assigned,     sub=card_sub)
+    with c2: kpi_card("Site Visit Booked", total_sv_booked,    sub=card_sub)
+    with c3: kpi_card("Site Visit Done",   total_sv_done,      sub=card_sub)
+    with c4: kpi_card("Flat Blocked",      total_flat_blocked, sub=card_sub)
+    with c5: kpi_card("Sale Closure",      total_sale_closure, sub=card_sub)
 
     r1, r2 = st.columns(2)
     with r1: rate_card("SV Booking Rate", sv_booking_rate, sub=f"{total_sv_booked} / {total_assigned}")
@@ -874,71 +873,66 @@ def _render_report_section(df: pd.DataFrame, label: str):
 
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
-    # --- Date trend chart ---
-    if "date" in df.columns and not df.empty:
-        df_sorted = df.copy()
+    # Daily table — show every day's raw numbers
+    if not is_cumulative:
+        st.markdown("**📅 Day-wise Breakdown**")
+        display_cols = [c for c in ["date","assigned_leads","site_visit_booked","site_visit_done","flat_blocked","sale_closure"] if c in df_display.columns]
+        show_df = df_display[display_cols].copy()
+        show_df["date"] = show_df["date"].dt.strftime("%d %b %Y")
+        show_df.columns = [c.replace("_", " ").title() for c in show_df.columns]
+        st.dataframe(show_df, use_container_width=True, hide_index=True)
+        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
-        col_a, col_b = st.columns(2)
+    # Charts
+    col_a, col_b = st.columns(2)
+    with col_a:
+        fig = go.Figure()
+        if "assigned_leads" in df_display.columns:
+            fig.add_trace(go.Bar(x=df_display["date"], y=df_display["assigned_leads"],
+                name="Assigned", marker_color="#1f6feb",
+                hovertemplate="<b>%{x|%d %b}</b><br>Assigned: %{y}<extra></extra>"))
+        if "site_visit_booked" in df_display.columns:
+            fig.add_trace(go.Scatter(x=df_display["date"], y=df_display["site_visit_booked"],
+                name="SV Booked", line=dict(color="#3fb950", width=2), mode="lines+markers",
+                hovertemplate="<b>%{x|%d %b}</b><br>SV Booked: %{y}<extra></extra>"))
+        _chart_layout(fig, f"{label} — Assigned vs SV Booked")
+        st.plotly_chart(fig, use_container_width=True)
 
-        with col_a:
-            fig = go.Figure()
-            if "assigned_leads" in df_sorted.columns:
-                fig.add_trace(go.Bar(
-                    x=df_sorted["date"], y=df_sorted["assigned_leads"],
-                    name="Assigned", marker_color="#7c6af7",
-                    hovertemplate="<b>%{x|%d %b}</b><br>Assigned: %{y}<extra></extra>",
-                ))
-            if "site_visit_booked" in df_sorted.columns:
-                fig.add_trace(go.Scatter(
-                    x=df_sorted["date"], y=df_sorted["site_visit_booked"],
-                    name="SV Booked", line=dict(color="#00e676", width=2),
-                    mode="lines+markers",
-                    hovertemplate="<b>%{x|%d %b}</b><br>SV Booked: %{y}<extra></extra>",
-                ))
-            _chart_layout(fig, f"{label} — Assigned vs Site Visit Booked")
-            st.plotly_chart(fig, use_container_width=True)
+    with col_b:
+        fig2 = go.Figure()
+        for col, color, name in [
+            ("site_visit_booked","#3fb950","SV Booked"),
+            ("site_visit_done","#58a6ff","SV Done"),
+            ("flat_blocked","#d29922","Flat Blocked"),
+            ("sale_closure","#f85149","Sale Closure"),
+        ]:
+            if col in df_display.columns:
+                fig2.add_trace(go.Scatter(x=df_display["date"], y=df_display[col],
+                    name=name, line=dict(color=color, width=2), mode="lines+markers",
+                    hovertemplate=f"<b>%{{x|%d %b}}</b><br>{name}: %{{y}}<extra></extra>"))
+        _chart_layout(fig2, f"{label} — Outcome Trends")
+        st.plotly_chart(fig2, use_container_width=True)
 
-        with col_b:
-            fig2 = go.Figure()
-            for col, color, name in [
-                ("site_visit_booked", "#00e676", "SV Booked"),
-                ("site_visit_done",   "#40c4ff", "SV Done"),
-                ("flat_blocked",      "#ffab40", "Flat Blocked"),
-                ("sale_closure",      "#f06292", "Sale Closure"),
-            ]:
-                if col in df_sorted.columns:
-                    fig2.add_trace(go.Scatter(
-                        x=df_sorted["date"], y=df_sorted[col],
-                        name=name, line=dict(color=color, width=2),
-                        mode="lines+markers",
-                        hovertemplate=f"<b>%{{x|%d %b}}</b><br>{name}: %{{y}}<extra></extra>",
-                    ))
-            _chart_layout(fig2, f"{label} — Outcome Trends")
-            st.plotly_chart(fig2, use_container_width=True)
-
-    # --- Funnel from this report ---
-    st.markdown("**Outcome Funnel**")
-    funnel_stages = [
-        ("Leads Assigned",    total_assigned),
-        ("Site Visit Booked", total_sv_booked),
-        ("Site Visit Done",   total_sv_done),
-        ("Flat Blocked",      total_flat_blocked),
-        ("Sale Closure",      total_sale_closure),
-    ]
-    funnel_stages = [(l, v) for l, v in funnel_stages if v > 0]
+    # Funnel
+    funnel_stages = [(l, v) for l, v in [
+        ("Leads Assigned", total_assigned), ("Site Visit Booked", total_sv_booked),
+        ("Site Visit Done", total_sv_done), ("Flat Blocked", total_flat_blocked),
+        ("Sale Closure", total_sale_closure)] if v > 0]
     if funnel_stages:
         fig3 = go.Figure(go.Funnel(
-            y=[s[0] for s in funnel_stages],
-            x=[s[1] for s in funnel_stages],
+            y=[s[0] for s in funnel_stages], x=[s[1] for s in funnel_stages],
             textinfo="value+percent initial",
-            marker=dict(color=["#7c6af7", "#00e5ff", "#00e676", "#ffab40", "#f06292"]),
-            connector=dict(line=dict(color="#3a3a5c", width=1)),
+            marker=dict(color=["#1f6feb","#3fb950","#58a6ff","#d29922","#f85149"]),
+            connector=dict(line=dict(color="#30363d", width=1)),
         ))
         fig3.update_layout(**PLOTLY_THEME)
         st.plotly_chart(fig3, use_container_width=True)
 
-    # --- Raw table ---
-    with st.expander(f"View {label} raw data"):
-        display_cols = [c for c in ["date", "assigned_leads", "site_visit_booked",
-                        "site_visit_done", "flat_blocked", "sale_closure"] if c in df.columns]
-        st.dataframe(df[display_cols], use_container_width=True, hide_index=True)
+    if is_cumulative:
+        with st.expander("View cumulative raw data"):
+            display_cols = [c for c in ["date","assigned_leads","site_visit_booked","site_visit_done","flat_blocked","sale_closure"] if c in df_display.columns]
+            show_df = df_display[display_cols].copy()
+            show_df["date"] = show_df["date"].dt.strftime("%d %b %Y")
+            show_df.columns = [c.replace("_", " ").title() for c in show_df.columns]
+            st.dataframe(show_df, use_container_width=True, hide_index=True)
+
