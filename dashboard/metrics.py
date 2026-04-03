@@ -91,6 +91,9 @@ def total_leads_from_report(data: dict) -> int:
     if daily is not None and not daily.empty and "assigned_leads" in daily.columns:
         return int(pd.to_numeric(daily["assigned_leads"], errors="coerce").fillna(0).sum())
     return 0
+
+
+def total_engaged(df: pd.DataFrame) -> int:
     """
     Overall engaged = unique leads who either replied on WA OR had a connected call.
     """
@@ -98,6 +101,10 @@ def total_leads_from_report(data: dict) -> int:
     if "wa_replied" in df.columns and "phone_norm" in df.columns:
         wa_replied_mask = df["wa_replied"].apply(lambda x: x is True or str(x).lower() in {"true","yes","1"})
         engaged.update(df.loc[wa_replied_mask, "phone_norm"].dropna().tolist())
+    if "ah_call_status" in df.columns and "phone_norm" in df.columns:
+        connected_mask = df["ah_call_status"].isin(THRESHOLDS["arrowhead_connected_statuses"])
+        engaged.update(df.loc[connected_mask, "phone_norm"].dropna().tolist())
+    return len(engaged)
     if "ah_call_status" in df.columns and "phone_norm" in df.columns:
         connected_mask = df["ah_call_status"].isin(THRESHOLDS["arrowhead_connected_statuses"])
         engaged.update(df.loc[connected_mask, "phone_norm"].dropna().tolist())
