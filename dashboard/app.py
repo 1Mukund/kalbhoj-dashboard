@@ -435,7 +435,7 @@ def main():
     filtered_df = render_sidebar(unified)
 
     # Compute KPIs on filtered data
-    kpis = compute_all_kpis(filtered_df)
+    kpis = compute_all_kpis(filtered_df, data=data)
 
     # --- Role-based tab list ---
     tab_defs = [

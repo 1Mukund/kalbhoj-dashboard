@@ -248,7 +248,6 @@ COLUMN_MAPS = {
         "flat_blocked":          "Flat Blocked",
         "flat_blocked_ids":      "Lead Id_3",
         "sale_closure":          "Sale Closure",
-        "sale_closure_ids":      "LeadId_4",
     },
 
     # --- Periskope Raw Log (Sheet1 of Peribot sheet) ---

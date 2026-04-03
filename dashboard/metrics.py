@@ -82,7 +82,15 @@ def indian_vs_international(df: pd.DataFrame) -> dict:
 # B. PERISKOPE / WHATSAPP
 # =============================================================================
 
-def total_engaged(df: pd.DataFrame) -> int:
+def total_leads_from_report(data: dict) -> int:
+    """
+    Get actual total assigned leads from Kalbhoj Daily Report (sum of all days).
+    Falls back to assigned_leads sheet count if report not available.
+    """
+    daily = data.get("kalbhoj_daily_report")
+    if daily is not None and not daily.empty and "assigned_leads" in daily.columns:
+        return int(pd.to_numeric(daily["assigned_leads"], errors="coerce").fillna(0).sum())
+    return 0
     """
     Overall engaged = unique leads who either replied on WA OR had a connected call.
     """
@@ -473,13 +481,15 @@ def daily_trend(df: pd.DataFrame, date_col: str, label: str) -> pd.DataFrame:
 # Returns a flat dict for easy rendering in views.py
 # =============================================================================
 
-def compute_all_kpis(df: pd.DataFrame) -> dict:
+def compute_all_kpis(df: pd.DataFrame, data: dict = None) -> dict:
+    report_total = total_leads_from_report(data) if data else 0
+    actual_total = report_total if report_total > 0 else total_leads(df)
     return {
         # A
-        "total_leads":              total_leads(df),
+        "total_leads":              actual_total,
         "new_leads_today":          new_leads_today(df),
         "new_leads_24h":            new_leads_last_24h(df),
-        "assigned_leads":           assigned_leads(df),
+        "assigned_leads":           actual_total,
         "total_engaged":            total_engaged(df),
         "indian_vs_intl":           indian_vs_international(df),
         # B
