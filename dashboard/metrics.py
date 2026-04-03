@@ -142,6 +142,15 @@ def daily_engagement_trend(data: dict) -> pd.DataFrame:
     return int(df[col].isin(sent).sum())
 
 
+def wa_sent(df: pd.DataFrame) -> int:
+    """Leads where WhatsApp was sent (status in sent statuses)."""
+    col = "wa_status"
+    if col not in df.columns:
+        return 0
+    sent = THRESHOLDS["periskope_sent_statuses"]
+    return int(df[col].isin(sent).sum())
+
+
 def wa_replied(df: pd.DataFrame) -> int:
     col = "wa_replied"
     if col not in df.columns:
