@@ -10,10 +10,11 @@
 # Option 2: Set USE_PUBLIC_CSV = True and fill PUBLIC_CSV_URLS below.
 # -----------------------------------------------------------------------------
 import os
+import pathlib
 
 USE_SERVICE_ACCOUNT = True
-# Path is relative to app.py which lives inside dashboard/
-SERVICE_ACCOUNT_FILE = os.path.join(os.path.dirname(__file__), "credentials", "service_account.json")
+# Works both locally and on Streamlit Cloud
+SERVICE_ACCOUNT_FILE = str(pathlib.Path(__file__).parent / "credentials" / "service_account.json")
 
 USE_PUBLIC_CSV = False  # Set True if sheets are publicly shared as CSV
 

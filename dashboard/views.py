@@ -130,7 +130,7 @@ def rate_card(label: str, rate: float, sub: str = ""):
 # SECTION 1 — EXECUTIVE SUMMARY
 # =============================================================================
 
-def render_executive_summary(df: pd.DataFrame, kpis: dict, role: str = "user"):
+def render_executive_summary(df: pd.DataFrame, kpis: dict, role: str = "user", data: dict = None):
     st.markdown(CARD_CSS, unsafe_allow_html=True)
     st.markdown("### 📊 Executive Summary")
 
@@ -148,6 +148,18 @@ def render_executive_summary(df: pd.DataFrame, kpis: dict, role: str = "user"):
     with c7: kpi_card("Booked Leads", kpis["booked_leads"])
     with c8: kpi_card("FU Replied / Exhausted", f"{kpis.get('fu_replied',0)} / {kpis.get('fu_exhausted',0)}", sub="Replied = stopped | Exhausted = 3 msgs sent")
 
+    # Engagement row
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    total = kpis["total_leads"]
+    engaged = kpis.get("total_engaged", 0)
+    not_engaged = max(0, total - engaged)
+    engagement_rate = round(engaged / total * 100, 1) if total > 0 else 0
+
+    e1, e2, e3, e4 = st.columns(4)
+    with e1: kpi_card("Overall Assigned", total, sub="Total leads in system")
+    with e2: kpi_card("Overall Engaged", engaged, sub="WA replied OR call connected", delta=f"{engagement_rate}% engagement rate", delta_type="up")
+    with e3: kpi_card("Not Yet Engaged", not_engaged, sub="No reply, no connected call", delta_type="warn")
+    with e4: rate_card("Engagement Rate", engagement_rate, sub=f"{engaged} / {total}")
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
     r1, r2, r3, r4 = st.columns(4)
@@ -155,6 +167,29 @@ def render_executive_summary(df: pd.DataFrame, kpis: dict, role: str = "user"):
     with r2: rate_card("Call Connect Rate", kpis["call_connection_rate"], sub=f"{kpis['calls_connected']} / {kpis['calls_triggered']}")
     with r3: rate_card("Booking Rate", kpis["booking_rate"])
     with r4: rate_card("Conversion Rate", kpis["conversion_rate"])
+
+    # Daily engagement trend chart
+    from metrics import daily_engagement_trend
+    eng_trend = daily_engagement_trend(data) if data else pd.DataFrame()
+    if not eng_trend.empty:
+        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+        st.markdown("**📅 Daily Engagement (WA Replied + Calls Connected)**")
+        fig_eng = go.Figure()
+        if "WA Replied" in eng_trend.columns:
+            fig_eng.add_trace(go.Bar(
+                x=eng_trend["date"], y=eng_trend["WA Replied"],
+                name="WA Replied", marker_color="#1f6feb",
+                hovertemplate="<b>%{x|%d %b}</b><br>WA Replied: %{y}<extra></extra>",
+            ))
+        if "Call Connected" in eng_trend.columns:
+            fig_eng.add_trace(go.Bar(
+                x=eng_trend["date"], y=eng_trend["Call Connected"],
+                name="Call Connected", marker_color="#3fb950",
+                hovertemplate="<b>%{x|%d %b}</b><br>Call Connected: %{y}<extra></extra>",
+            ))
+        fig_eng.update_layout(barmode="stack")
+        _chart_layout(fig_eng, "Daily Engagement Trend")
+        st.plotly_chart(fig_eng, use_container_width=True)
 
     # Operational risk strip — admin only
     if role == "admin":

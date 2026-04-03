@@ -82,7 +82,58 @@ def indian_vs_international(df: pd.DataFrame) -> dict:
 # B. PERISKOPE / WHATSAPP
 # =============================================================================
 
-def wa_sent(df: pd.DataFrame) -> int:
+def total_engaged(df: pd.DataFrame) -> int:
+    """
+    Overall engaged = unique leads who either replied on WA OR had a connected call.
+    """
+    engaged = set()
+    if "wa_replied" in df.columns and "phone_norm" in df.columns:
+        wa_replied_mask = df["wa_replied"].apply(lambda x: x is True or str(x).lower() in {"true","yes","1"})
+        engaged.update(df.loc[wa_replied_mask, "phone_norm"].dropna().tolist())
+    if "ah_call_status" in df.columns and "phone_norm" in df.columns:
+        connected_mask = df["ah_call_status"].isin(THRESHOLDS["arrowhead_connected_statuses"])
+        engaged.update(df.loc[connected_mask, "phone_norm"].dropna().tolist())
+    return len(engaged)
+
+
+def daily_engagement_trend(data: dict) -> pd.DataFrame:
+    """
+    Daily count of engaged leads (WA replied + calls connected) by date.
+    Uses raw sheets for accurate timestamps.
+    """
+    records = []
+
+    # WA replied_at
+    wa = data.get("periskope_first_touch")
+    if wa is not None and not wa.empty and "replied_at" in wa.columns and "replied" in wa.columns:
+        wa_rep = wa[wa["replied"].apply(lambda x: x is True or str(x).lower() in {"true","yes","1"})].copy()
+        wa_rep["_date"] = wa_rep["replied_at"].apply(
+            lambda x: pd.Timestamp(x).tz_localize(None).date() if pd.notna(x) else None
+        )
+        for d in wa_rep["_date"].dropna():
+            records.append({"date": d, "type": "WA Replied"})
+
+    # AH connected completed_at
+    ah = data.get("arrowhead_kalbhoj")
+    if ah is not None and not ah.empty and "completed_at" in ah.columns and "call_status" in ah.columns:
+        ah_conn = ah[ah["call_status"].isin(THRESHOLDS["arrowhead_connected_statuses"])].copy()
+        ah_conn["_date"] = ah_conn["completed_at"].apply(
+            lambda x: pd.Timestamp(x).tz_localize(None).date() if pd.notna(x) else None
+        )
+        for d in ah_conn["_date"].dropna():
+            records.append({"date": d, "type": "Call Connected"})
+
+    if not records:
+        return pd.DataFrame(columns=["date", "WA Replied", "Call Connected", "Total"])
+
+    df_r = pd.DataFrame(records)
+    pivot = df_r.groupby(["date", "type"]).size().unstack(fill_value=0).reset_index()
+    for col in ["WA Replied", "Call Connected"]:
+        if col not in pivot.columns:
+            pivot[col] = 0
+    pivot["Total"] = pivot["WA Replied"] + pivot["Call Connected"]
+    pivot["date"] = pd.to_datetime(pivot["date"])
+    return pivot.sort_values("date")
     """Leads where WhatsApp was sent (status in sent statuses)."""
     col = "wa_status"
     if col not in df.columns:
@@ -420,6 +471,7 @@ def compute_all_kpis(df: pd.DataFrame) -> dict:
         "new_leads_today":          new_leads_today(df),
         "new_leads_24h":            new_leads_last_24h(df),
         "assigned_leads":           assigned_leads(df),
+        "total_engaged":            total_engaged(df),
         "indian_vs_intl":           indian_vs_international(df),
         # B
         "wa_sent":                  wa_sent(df),

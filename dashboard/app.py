@@ -460,7 +460,7 @@ def main():
 
     tabs[idx["📊 Summary"]].write("")  # activate
     with tabs[idx["📊 Summary"]]:
-        views.render_executive_summary(filtered_df, kpis, role=role)
+        views.render_executive_summary(filtered_df, kpis, role=role, data=data)
 
     with tabs[idx["🔽 Funnel"]]:
         views.render_funnel(kpis)
