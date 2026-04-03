@@ -879,6 +879,10 @@ def _render_report_section(df: pd.DataFrame, label: str):
         df["date"] = pd.to_datetime(df["date"], dayfirst=True, errors="coerce")
         df = df.dropna(subset=["date"]).sort_values("date").reset_index(drop=True)
 
+    if df.empty:
+        st.info(f"No valid data available for {label} report.")
+        return
+
     is_cumulative = label == "Cumulative"
 
     # For cumulative — build running total df for charts
@@ -935,11 +939,11 @@ def _render_report_section(df: pd.DataFrame, label: str):
     col_a, col_b = st.columns(2)
     with col_a:
         fig = go.Figure()
-        if "assigned_leads" in df_display.columns:
+        if "assigned_leads" in df_display.columns and "date" in df_display.columns:
             fig.add_trace(go.Bar(x=df_display["date"], y=df_display["assigned_leads"],
                 name="Assigned", marker_color="#1f6feb",
                 hovertemplate="<b>%{x|%d %b}</b><br>Assigned: %{y}<extra></extra>"))
-        if "site_visit_booked" in df_display.columns:
+        if "site_visit_booked" in df_display.columns and "date" in df_display.columns:
             fig.add_trace(go.Scatter(x=df_display["date"], y=df_display["site_visit_booked"],
                 name="SV Booked", line=dict(color="#3fb950", width=2), mode="lines+markers",
                 hovertemplate="<b>%{x|%d %b}</b><br>SV Booked: %{y}<extra></extra>"))
@@ -954,7 +958,7 @@ def _render_report_section(df: pd.DataFrame, label: str):
             ("flat_blocked","#d29922","Flat Blocked"),
             ("sale_closure","#f85149","Sale Closure"),
         ]:
-            if col in df_display.columns:
+            if col in df_display.columns and "date" in df_display.columns:
                 fig2.add_trace(go.Scatter(x=df_display["date"], y=df_display[col],
                     name=name, line=dict(color=color, width=2), mode="lines+markers",
                     hovertemplate=f"<b>%{{x|%d %b}}</b><br>{name}: %{{y}}<extra></extra>"))
