@@ -930,7 +930,8 @@ def _render_report_section(df: pd.DataFrame, label: str):
         st.markdown("**📅 Day-wise Breakdown**")
         display_cols = [c for c in ["date","assigned_leads","site_visit_booked","site_visit_done","flat_blocked","sale_closure"] if c in df_display.columns]
         show_df = df_display[display_cols].copy()
-        show_df["date"] = show_df["date"].dt.strftime("%d %b %Y")
+        if "date" in show_df.columns:
+            show_df["date"] = pd.to_datetime(show_df["date"], errors="coerce").dt.strftime("%d %b %Y")
         show_df.columns = [c.replace("_", " ").title() for c in show_df.columns]
         st.dataframe(show_df, use_container_width=True, hide_index=True)
         st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
@@ -984,7 +985,8 @@ def _render_report_section(df: pd.DataFrame, label: str):
         with st.expander("View cumulative raw data"):
             display_cols = [c for c in ["date","assigned_leads","site_visit_booked","site_visit_done","flat_blocked","sale_closure"] if c in df_display.columns]
             show_df = df_display[display_cols].copy()
-            show_df["date"] = show_df["date"].dt.strftime("%d %b %Y")
+            if "date" in show_df.columns:
+                show_df["date"] = pd.to_datetime(show_df["date"], errors="coerce").dt.strftime("%d %b %Y")
             show_df.columns = [c.replace("_", " ").title() for c in show_df.columns]
             st.dataframe(show_df, use_container_width=True, hide_index=True)
 

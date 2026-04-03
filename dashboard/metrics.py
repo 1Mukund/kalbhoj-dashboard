@@ -114,29 +114,39 @@ def total_engaged(df: pd.DataFrame) -> int:
 def daily_engagement_trend(data: dict) -> pd.DataFrame:
     """
     Daily count of engaged leads (WA replied + calls connected) by date.
-    Uses raw sheets for accurate timestamps.
+    Only includes dates from 2026-03-01 onwards (system start date).
     """
+    import datetime
+    MIN_DATE = datetime.date(2026, 3, 1)
     records = []
 
-    # WA replied_at
     wa = data.get("periskope_first_touch")
     if wa is not None and not wa.empty and "replied_at" in wa.columns and "replied" in wa.columns:
         wa_rep = wa[wa["replied"].apply(lambda x: x is True or str(x).lower() in {"true","yes","1"})].copy()
-        wa_rep["_date"] = wa_rep["replied_at"].apply(
-            lambda x: pd.Timestamp(x).tz_localize(None).date() if pd.notna(x) else None
-        )
-        for d in wa_rep["_date"].dropna():
-            records.append({"date": d, "type": "WA Replied"})
+        for val in wa_rep["replied_at"].dropna():
+            try:
+                ts = pd.Timestamp(val)
+                if ts.tzinfo is not None:
+                    ts = ts.tz_localize(None)
+                d = ts.date()
+                if d >= MIN_DATE:
+                    records.append({"date": d, "type": "WA Replied"})
+            except Exception:
+                continue
 
-    # AH connected completed_at
     ah = data.get("arrowhead_kalbhoj")
     if ah is not None and not ah.empty and "completed_at" in ah.columns and "call_status" in ah.columns:
         ah_conn = ah[ah["call_status"].isin(THRESHOLDS["arrowhead_connected_statuses"])].copy()
-        ah_conn["_date"] = ah_conn["completed_at"].apply(
-            lambda x: pd.Timestamp(x).tz_localize(None).date() if pd.notna(x) else None
-        )
-        for d in ah_conn["_date"].dropna():
-            records.append({"date": d, "type": "Call Connected"})
+        for val in ah_conn["completed_at"].dropna():
+            try:
+                ts = pd.Timestamp(val)
+                if ts.tzinfo is not None:
+                    ts = ts.tz_localize(None)
+                d = ts.date()
+                if d >= MIN_DATE:
+                    records.append({"date": d, "type": "Call Connected"})
+            except Exception:
+                continue
 
     if not records:
         return pd.DataFrame(columns=["date", "WA Replied", "Call Connected", "Total"])
