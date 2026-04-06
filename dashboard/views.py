@@ -110,9 +110,7 @@ def kpi_card(label: str, value, sub: str = "", delta: str = "", delta_type: str 
     </div>
     """, unsafe_allow_html=True)
     if info:
-        with st.popover("ℹ️", use_container_width=False):
-            st.markdown(f"**{label}**")
-            st.caption(info)
+        st.caption(f"ℹ️ {info}")
 
 
 def rate_card(label: str, rate: float, sub: str = ""):
