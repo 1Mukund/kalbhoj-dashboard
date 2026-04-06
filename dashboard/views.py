@@ -212,27 +212,37 @@ def render_funnel(kpis: dict):
     st.markdown("### 🔽 Lead Funnel")
 
     stages = [
-        ("Total Leads Assigned",         kpis["total_leads"]),
-        ("WA First Touch Sent",          kpis["wa_sent"]),
-        ("WA First Touch Replied",       kpis["wa_replied"]),
-        ("Calls Triggered",              kpis["calls_triggered"]),
-        ("Calls Connected",              kpis["calls_connected"]),
-        ("Booked",                       kpis["booked_leads"]),
-        ("Follow-up Exhausted",          kpis.get("fu_exhausted", 0)),
+        ("Total Leads Assigned",        kpis["total_leads"]),
+        ("WA First Touch Sent",         kpis["wa_sent"]),
+        ("WA First Touch Replied",      kpis["wa_replied"]),
+        ("WA Second Touch Sent",        kpis.get("wa2_sent", 0)),
+        ("WA Second Touch Replied",     kpis.get("wa2_replied", 0)),
+        ("Overall Unique WA Replied",   kpis.get("wa_overall_replied", 0)),
+        ("Calls Triggered",             kpis["calls_triggered"]),
+        ("Calls Connected",             kpis["calls_connected"]),
+        ("Booked (Site Visit / Call)",  kpis["booked_leads"]),
     ]
 
-    labels = [s[0] for s in stages]
-    values = [s[1] for s in stages]
+    # Remove stages with 0 value
+    stages = [(l, v) for l, v in stages if v > 0]
 
     fig = go.Figure(go.Funnel(
-        y=labels,
-        x=values,
+        y=[s[0] for s in stages],
+        x=[s[1] for s in stages],
         textinfo="value+percent initial",
-        marker=dict(color=COLOR_SEQ[:len(labels)]),
-        connector=dict(line=dict(color="#3a3a5c", width=1)),
+        marker=dict(color=COLOR_SEQ[:len(stages)]),
+        connector=dict(line=dict(color="#30363d", width=1)),
     ))
     fig.update_layout(title="Lead Conversion Funnel", **PLOTLY_THEME)
     st.plotly_chart(fig, use_container_width=True)
+
+    # Summary row below funnel
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    f1, f2, f3, f4 = st.columns(4)
+    with f1: kpi_card("WA First Touch", f"{kpis['wa_sent']} sent", sub=f"{kpis['wa_replied']} replied ({kpis['wa_reply_rate']}%)", info="Source: Periskope Automated First Touch sheet.")
+    with f2: kpi_card("WA Second Touch", f"{kpis.get('wa2_sent',0)} sent", sub=f"{kpis.get('wa2_replied',0)} replied ({kpis.get('wa2_reply_rate',0)}%)", info="Source: Anandita Following Up sheet.")
+    with f3: kpi_card("Calls", f"{kpis['calls_triggered']} triggered", sub=f"{kpis['calls_connected']} connected ({kpis['call_connection_rate']}%)", info="Source: Arrowhead Automation Sheet (Sheet3).")
+    with f4: kpi_card("Booked", kpis["booked_leads"], sub="Site visit / call scheduled", info="Source: Site Visit & Calls Schedules sheet. intent = site_visit_request / call_request etc.")
 
 
 # =============================================================================
