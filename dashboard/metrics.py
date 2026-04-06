@@ -261,7 +261,36 @@ def third_touch_sent(df: pd.DataFrame) -> int:
 # C. ARROWHEAD / CALLING
 # =============================================================================
 
-def calls_triggered(df: pd.DataFrame) -> int:
+def calls_triggered_from_sheet(data: dict) -> int:
+    """Total rows in arrowhead_kalbhoj = calls triggered."""
+    df = data.get("arrowhead_kalbhoj") if data else None
+    if df is None or df.empty:
+        return 0
+    return len(df)
+
+
+def calls_connected_from_sheet(data: dict) -> int:
+    df = data.get("arrowhead_kalbhoj") if data else None
+    if df is None or df.empty or "call_status" not in df.columns:
+        return 0
+    return int(df["call_status"].isin(THRESHOLDS["arrowhead_connected_statuses"]).sum())
+
+
+def calls_not_connected_from_sheet(data: dict) -> int:
+    df = data.get("arrowhead_kalbhoj") if data else None
+    if df is None or df.empty or "call_status" not in df.columns:
+        return 0
+    return int(df["call_status"].isin(THRESHOLDS["arrowhead_not_connected_statuses"]).sum())
+
+
+def avg_call_duration_from_sheet(data: dict) -> float:
+    df = data.get("arrowhead_kalbhoj") if data else None
+    if df is None or df.empty or "call_duration" not in df.columns:
+        return 0.0
+    numeric = pd.to_numeric(df["call_duration"], errors="coerce").dropna()
+    if numeric.empty:
+        return 0.0
+    return round(float(numeric.mean()), 1)
     col = "ah_triggered_at"
     if col not in df.columns:
         return 0
@@ -593,14 +622,14 @@ def compute_all_kpis(df: pd.DataFrame, data: dict = None) -> dict:
         "third_touch_sent":         third_touch_sent(df),
         "fu_replied":               replied_leads(df),
         "fu_exhausted":             done_leads(df),
-        # C
-        "calls_triggered":          calls_triggered(df),
-        "calls_connected":          calls_connected(df),
-        "calls_not_connected":      calls_not_connected(df),
+        # C — Calling from source sheet directly
+        "calls_triggered":          calls_triggered_from_sheet(data) if data else calls_triggered(df),
+        "calls_connected":          calls_connected_from_sheet(data) if data else calls_connected(df),
+        "calls_not_connected":      calls_not_connected_from_sheet(data) if data else calls_not_connected(df),
         "calls_busy":               calls_busy(df),
         "calls_failed":             calls_failed(df),
-        "avg_call_duration":        avg_call_duration(df),
-        "call_connection_rate":     call_connection_rate(df),
+        "avg_call_duration":        avg_call_duration_from_sheet(data) if data else avg_call_duration(df),
+        "call_connection_rate":     round(calls_connected_from_sheet(data) / calls_triggered_from_sheet(data) * 100, 1) if data and calls_triggered_from_sheet(data) > 0 else call_connection_rate(df),
         "arrowhead_errors":         arrowhead_error_count(df),
         # D
         "site_visits_scheduled":    site_visits_scheduled(df),
