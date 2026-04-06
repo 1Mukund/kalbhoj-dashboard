@@ -183,7 +183,39 @@ def wa_replied_from_sheet(data: dict) -> int:
     return int(df["replied"].apply(lambda x: x is True or str(x).lower() in {"true","yes","1"}).sum())
 
 
-def wa_sent(df: pd.DataFrame) -> int:
+def wa_second_touch_from_sheet(data: dict) -> tuple[int, int]:
+    """
+    Returns (unique_sent, unique_replied) from followup_tracker sheet.
+    Uses phone_norm for unique count.
+    """
+    df = data.get("followup_tracker") if data else None
+    if df is None or df.empty:
+        return 0, 0
+    sent = df["phone_norm"].dropna().nunique() if "phone_norm" in df.columns else len(df)
+    replied = df.loc[
+        df["replied"].apply(lambda x: x is True or str(x).lower() in {"true","yes","1"}),
+        "phone_norm"
+    ].dropna().nunique() if "replied" in df.columns and "phone_norm" in df.columns else 0
+    return sent, replied
+
+
+def wa_overall_unique(data: dict) -> tuple[int, int]:
+    """
+    Overall unique WA sent/replied = union of first touch + second touch phone sets.
+    Removes double counting of same lead appearing in both sheets.
+    """
+    wa  = data.get("periskope_first_touch") if data else None
+    fu  = data.get("followup_tracker") if data else None
+
+    ft_sent    = set(wa["phone_norm"].dropna()) if wa is not None and "phone_norm" in wa.columns else set()
+    st_sent    = set(fu["phone_norm"].dropna()) if fu is not None and "phone_norm" in fu.columns else set()
+    overall_sent = len(ft_sent | st_sent)
+
+    ft_replied = set(wa.loc[wa["replied"].apply(lambda x: x is True or str(x).lower() in {"true","yes","1"}), "phone_norm"].dropna()) if wa is not None and "replied" in wa.columns else set()
+    st_replied = set(fu.loc[fu["replied"].apply(lambda x: x is True or str(x).lower() in {"true","yes","1"}), "phone_norm"].dropna()) if fu is not None and "replied" in fu.columns else set()
+    overall_replied = len(ft_replied | st_replied)
+
+    return overall_sent, overall_replied
     """Leads where WhatsApp was sent (status in sent statuses)."""
     col = "wa_status"
     if col not in df.columns:
@@ -524,6 +556,15 @@ def compute_all_kpis(df: pd.DataFrame, data: dict = None) -> dict:
     _wa_no_reply = max(0, _wa_sent - _wa_replied)
     _wa_reply_rate = round(_wa_replied / _wa_sent * 100, 1) if _wa_sent > 0 else 0.0
 
+    # Second touch from followup_tracker
+    _wa2_sent, _wa2_replied = wa_second_touch_from_sheet(data) if data else (0, 0)
+    _wa2_no_reply = max(0, _wa2_sent - _wa2_replied)
+    _wa2_reply_rate = round(_wa2_replied / _wa2_sent * 100, 1) if _wa2_sent > 0 else 0.0
+
+    # Overall WA = unique union of first + second touch (no double counting)
+    _wa_overall_sent, _wa_overall_replied = wa_overall_unique(data) if data else (_wa_sent + _wa2_sent, _wa_replied + _wa2_replied)
+    _wa_overall_rate = round(_wa_overall_replied / _wa_overall_sent * 100, 1) if _wa_overall_sent > 0 else 0.0
+
     return {
         # A
         "total_leads":              actual_total,
@@ -538,6 +579,15 @@ def compute_all_kpis(df: pd.DataFrame, data: dict = None) -> dict:
         "wa_no_reply":              _wa_no_reply,
         "wa_moved_to_arrowhead":    wa_moved_to_arrowhead(df),
         "wa_reply_rate":            _wa_reply_rate,
+        # Second touch
+        "wa2_sent":                 _wa2_sent,
+        "wa2_replied":              _wa2_replied,
+        "wa2_no_reply":             _wa2_no_reply,
+        "wa2_reply_rate":           _wa2_reply_rate,
+        # Overall WA
+        "wa_overall_sent":          _wa_overall_sent,
+        "wa_overall_replied":       _wa_overall_replied,
+        "wa_overall_rate":          _wa_overall_rate,
         "followup_active":          followup_active_count(df),
         "overdue_followups":        len(overdue_followups_df(df)),
         "third_touch_sent":         third_touch_sent(df),

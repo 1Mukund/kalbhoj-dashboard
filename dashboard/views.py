@@ -317,6 +317,21 @@ def render_channel_performance(df: pd.DataFrame):
 def render_followup_performance(df: pd.DataFrame, kpis: dict, role: str = "user"):
     st.markdown("### 💬 Periskope First Touch & Follow-up Performance")
 
+    # --- First Touch + Second Touch + Overall cards ---
+    st.markdown("**📊 WhatsApp Touch Summary**")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        kpi_card("First Touch Sent", kpis["wa_sent"],
+                 sub=f"Replied: {kpis['wa_replied']} ({kpis['wa_reply_rate']}%)")
+    with c2:
+        kpi_card("Second Touch Sent", kpis.get("wa2_sent", 0),
+                 sub=f"Replied: {kpis.get('wa2_replied',0)} ({kpis.get('wa2_reply_rate',0)}%)")
+    with c3:
+        kpi_card("Overall WA Sent", kpis.get("wa_overall_sent", 0),
+                 sub=f"Overall Replied: {kpis.get('wa_overall_replied',0)} ({kpis.get('wa_overall_rate',0)}%)")
+
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+
     c1, c2 = st.columns(2)
 
     with c1:
@@ -333,7 +348,7 @@ def render_followup_performance(df: pd.DataFrame, kpis: dict, role: str = "user"
             textposition="outside",
             hovertemplate="<b>%{x}</b><br>Count: %{y}<extra></extra>",
         ))
-        _chart_layout(fig, "Periskope First Touch Outcome (206 total sent)")
+        _chart_layout(fig, f"First Touch Outcome ({kpis['wa_sent']} sent)")
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:
