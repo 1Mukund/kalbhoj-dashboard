@@ -101,15 +101,18 @@ def _chart_layout(fig, title=""):
 def kpi_card(label: str, value, sub: str = "", delta: str = "", delta_type: str = "up", info: str = ""):
     delta_class = {"up": "kpi-delta-up", "down": "kpi-delta-down", "warn": "kpi-delta-warn"}.get(delta_type, "kpi-delta-up")
     delta_html = f'<div class="{delta_class}">{delta}</div>' if delta else ""
-    info_html = f'<span title="{info}" style="float:right;cursor:pointer;color:#58a6ff;font-size:13px;font-weight:700;background:#21262d;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #30363d">ℹ</span>' if info else ""
     st.markdown(f"""
     <div class="kpi-card">
-        <div class="kpi-label">{label}{info_html}</div>
+        <div class="kpi-label">{label}</div>
         <div class="kpi-value">{value}</div>
         {f'<div class="kpi-sub">{sub}</div>' if sub else ""}
         {delta_html}
     </div>
     """, unsafe_allow_html=True)
+    if info:
+        with st.popover("ℹ️", use_container_width=False):
+            st.markdown(f"**{label}**")
+            st.caption(info)
 
 
 def rate_card(label: str, rate: float, sub: str = ""):
