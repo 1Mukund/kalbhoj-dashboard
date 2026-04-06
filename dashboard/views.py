@@ -89,21 +89,22 @@ COLOR_SEQ = ["#1f6feb", "#3fb950", "#d29922", "#f85149", "#58a6ff", "#bc8cff", "
 
 def _chart_layout(fig, title=""):
     fig.update_layout(
-        title=dict(text=title, font=dict(size=14, color="#1e1b4b", weight=700)),
+        title=dict(text=title, font=dict(size=14, color="#e6edf3")),
         **PLOTLY_THEME,
-        legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color="#6b7280")),
-        xaxis=dict(gridcolor="#f3f4f6", zerolinecolor="#e5e7eb", linecolor="#e5e7eb"),
-        yaxis=dict(gridcolor="#f3f4f6", zerolinecolor="#e5e7eb", linecolor="#e5e7eb"),
+        legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color="#8b949e")),
+        xaxis=dict(gridcolor="#21262d", zerolinecolor="#30363d", linecolor="#30363d", tickfont=dict(color="#8b949e")),
+        yaxis=dict(gridcolor="#21262d", zerolinecolor="#30363d", linecolor="#30363d", tickfont=dict(color="#8b949e")),
     )
     return fig
 
 
-def kpi_card(label: str, value, sub: str = "", delta: str = "", delta_type: str = "up"):
+def kpi_card(label: str, value, sub: str = "", delta: str = "", delta_type: str = "up", info: str = ""):
     delta_class = {"up": "kpi-delta-up", "down": "kpi-delta-down", "warn": "kpi-delta-warn"}.get(delta_type, "kpi-delta-up")
     delta_html = f'<div class="{delta_class}">{delta}</div>' if delta else ""
+    info_html = f'<span title="{info}" style="float:right;cursor:pointer;color:#58a6ff;font-size:13px;font-weight:700;background:#21262d;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #30363d">ℹ</span>' if info else ""
     st.markdown(f"""
     <div class="kpi-card">
-        <div class="kpi-label">{label}</div>
+        <div class="kpi-label">{label}{info_html}</div>
         <div class="kpi-value">{value}</div>
         {f'<div class="kpi-sub">{sub}</div>' if sub else ""}
         {delta_html}
@@ -135,18 +136,18 @@ def render_executive_summary(df: pd.DataFrame, kpis: dict, role: str = "user", d
     st.markdown("### 📊 Executive Summary")
 
     c1, c2, c3, c4 = st.columns(4)
-    with c1: kpi_card("Total Leads", kpis["total_leads"], sub=f"Today: {kpis['new_leads_today']}")
-    with c2: kpi_card("New (Last 24h)", kpis["new_leads_24h"])
-    with c3: kpi_card("Assigned Leads", kpis["assigned_leads"])
+    with c1: kpi_card("Total Leads", kpis["total_leads"], sub=f"Today: {kpis['new_leads_today']}", info="Source: Kalbhoj Daily Report sheet. Sum of 'Assigned No. Of Leads' column across all dates.")
+    with c2: kpi_card("New (Last 24h)", kpis["new_leads_24h"], info="Source: Assigned Leads sheet. Leads jinki Born Date last 24 hours mein hai.")
+    with c3: kpi_card("Assigned Leads", kpis["assigned_leads"], info="Source: Kalbhoj Daily Report. Total leads assigned to date.")
     with c4:
         intl = kpis["indian_vs_intl"]
-        kpi_card("Indian / Intl", f"{intl['Indian']} / {intl['International']}")
+        kpi_card("Indian / Intl", f"{intl['Indian']} / {intl['International']}", info="Source: Assigned Leads sheet. Phone number se detect kiya — +91/91 prefix ya 10-digit 6-9 se shuru = Indian.")
 
     c5, c6, c7, c8 = st.columns(4)
-    with c5: kpi_card("WA First Touch Sent", kpis["wa_sent"], sub="Periskope Automated First Touch")
-    with c6: kpi_card("Calls Triggered", kpis["calls_triggered"], sub=f"Connected: {kpis['calls_connected']}")
-    with c7: kpi_card("Booked Leads", kpis["booked_leads"])
-    with c8: kpi_card("FU Replied / Exhausted", f"{kpis.get('fu_replied',0)} / {kpis.get('fu_exhausted',0)}", sub="Replied = stopped | Exhausted = 3 msgs sent")
+    with c5: kpi_card("WA First Touch Sent", kpis["wa_sent"], sub="Periskope Automated First Touch", info="Source: Periskope Automated First Touch sheet. Total rows = jinhe pehla WA gaya.")
+    with c6: kpi_card("Calls Triggered", kpis["calls_triggered"], sub=f"Connected: {kpis['calls_connected']}", info="Source: Arrowhead Automation Sheet (Sheet3). Triggered At column not empty = call trigger hua.")
+    with c7: kpi_card("Booked Leads", kpis["booked_leads"], info="Source: Site Visit & Calls Schedules sheet. intent column = site_visit_request / call_request / callback_request etc.")
+    with c8: kpi_card("FU Replied / Exhausted", f"{kpis.get('fu_replied',0)} / {kpis.get('fu_exhausted',0)}", sub="Replied = stopped | Exhausted = 3 msgs sent", info="Source: Anandita Following Up sheet. Replied = status='stopped_replied'. Exhausted = status='done' (3 followups gaye, koi reply nahi).")
 
     # Engagement row
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
@@ -322,13 +323,16 @@ def render_followup_performance(df: pd.DataFrame, kpis: dict, role: str = "user"
     c1, c2, c3 = st.columns(3)
     with c1:
         kpi_card("First Touch Sent", kpis["wa_sent"],
-                 sub=f"Replied: {kpis['wa_replied']} ({kpis['wa_reply_rate']}%)")
+                 sub=f"Replied: {kpis['wa_replied']} ({kpis['wa_reply_rate']}%)",
+                 info="Source: Periskope Automated First Touch sheet. Total unique leads jinhe pehla WhatsApp gaya. Replied = Replied column = True.")
     with c2:
         kpi_card("Second Touch Sent", kpis.get("wa2_sent", 0),
-                 sub=f"Replied: {kpis.get('wa2_replied',0)} ({kpis.get('wa2_reply_rate',0)}%)")
+                 sub=f"Replied: {kpis.get('wa2_replied',0)} ({kpis.get('wa2_reply_rate',0)}%)",
+                 info="Source: Anandita Following Up sheet. Unique leads jinhe Anandita ne followup kiya. Replied = Replied column = True.")
     with c3:
-        kpi_card("Overall WA Sent", kpis.get("wa_overall_sent", 0),
-                 sub=f"Overall Replied: {kpis.get('wa_overall_replied',0)} ({kpis.get('wa_overall_rate',0)}%)")
+        kpi_card("Overall Unique WA", kpis.get("wa_overall_sent", 0),
+                 sub=f"Replied: {kpis.get('wa_overall_replied',0)} ({kpis.get('wa_overall_rate',0)}%)",
+                 info="First Touch + Second Touch ka union (unique phones). Common leads ek baar count hote hain. Formula: unique(first_touch phones ∪ second_touch phones).")
 
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
