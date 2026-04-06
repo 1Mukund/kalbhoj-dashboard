@@ -143,7 +143,7 @@ def render_executive_summary(df: pd.DataFrame, kpis: dict, role: str = "user", d
         kpi_card("Indian / Intl", f"{intl['Indian']} / {intl['International']}")
 
     c5, c6, c7, c8 = st.columns(4)
-    with c5: kpi_card("WhatsApp Sent", kpis["wa_sent"], sub=f"Replied: {kpis['wa_replied']}")
+    with c5: kpi_card("WA First Touch Sent", kpis["wa_sent"], sub="Periskope Automated First Touch")
     with c6: kpi_card("Calls Triggered", kpis["calls_triggered"], sub=f"Connected: {kpis['calls_connected']}")
     with c7: kpi_card("Booked Leads", kpis["booked_leads"])
     with c8: kpi_card("FU Replied / Exhausted", f"{kpis.get('fu_replied',0)} / {kpis.get('fu_exhausted',0)}", sub="Replied = stopped | Exhausted = 3 msgs sent")
@@ -210,14 +210,13 @@ def render_funnel(kpis: dict):
     st.markdown("### 🔽 Lead Funnel")
 
     stages = [
-        ("Total Leads",              kpis["total_leads"]),
-        ("Assigned",                 kpis["assigned_leads"]),
-        ("WA Sent",                  kpis["wa_sent"]),
-        ("WA Replied (stopped)",     kpis.get("fu_replied", 0)),
-        ("Calls Triggered",          kpis["calls_triggered"]),
-        ("Calls Connected",          kpis["calls_connected"]),
-        ("Booked",                   kpis["booked_leads"]),
-        ("Follow-up Exhausted",      kpis.get("fu_exhausted", 0)),
+        ("Total Leads Assigned",         kpis["total_leads"]),
+        ("WA First Touch Sent",          kpis["wa_sent"]),
+        ("WA First Touch Replied",       kpis["wa_replied"]),
+        ("Calls Triggered",              kpis["calls_triggered"]),
+        ("Calls Connected",              kpis["calls_connected"]),
+        ("Booked",                       kpis["booked_leads"]),
+        ("Follow-up Exhausted",          kpis.get("fu_exhausted", 0)),
     ]
 
     labels = [s[0] for s in stages]
@@ -316,7 +315,7 @@ def render_channel_performance(df: pd.DataFrame):
 # =============================================================================
 
 def render_followup_performance(df: pd.DataFrame, kpis: dict, role: str = "user"):
-    st.markdown("### 💬 WhatsApp & Follow-up Performance")
+    st.markdown("### 💬 Periskope First Touch & Follow-up Performance")
 
     c1, c2 = st.columns(2)
 
@@ -334,7 +333,7 @@ def render_followup_performance(df: pd.DataFrame, kpis: dict, role: str = "user"
             textposition="outside",
             hovertemplate="<b>%{x}</b><br>Count: %{y}<extra></extra>",
         ))
-        _chart_layout(fig, "WhatsApp Outcome Breakdown")
+        _chart_layout(fig, "Periskope First Touch Outcome (206 total sent)")
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:

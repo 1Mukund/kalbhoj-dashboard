@@ -167,6 +167,22 @@ def daily_engagement_trend(data: dict) -> pd.DataFrame:
     return int(df[col].isin(sent).sum())
 
 
+def wa_sent_from_sheet(data: dict) -> int:
+    """Total leads in periskope_first_touch = WA sent count."""
+    df = data.get("periskope_first_touch") if data else None
+    if df is None or df.empty:
+        return 0
+    return len(df)
+
+
+def wa_replied_from_sheet(data: dict) -> int:
+    """Leads where Replied = True in periskope_first_touch."""
+    df = data.get("periskope_first_touch") if data else None
+    if df is None or df.empty or "replied" not in df.columns:
+        return 0
+    return int(df["replied"].apply(lambda x: x is True or str(x).lower() in {"true","yes","1"}).sum())
+
+
 def wa_sent(df: pd.DataFrame) -> int:
     """Leads where WhatsApp was sent (status in sent statuses)."""
     col = "wa_status"
@@ -501,6 +517,13 @@ def daily_trend(df: pd.DataFrame, date_col: str, label: str) -> pd.DataFrame:
 def compute_all_kpis(df: pd.DataFrame, data: dict = None) -> dict:
     report_total = total_leads_from_report(data) if data else 0
     actual_total = report_total if report_total > 0 else total_leads(df)
+
+    # WA metrics directly from source sheet (not merged df) for accuracy
+    _wa_sent    = wa_sent_from_sheet(data) if data else wa_sent(df)
+    _wa_replied = wa_replied_from_sheet(data) if data else wa_replied(df)
+    _wa_no_reply = max(0, _wa_sent - _wa_replied)
+    _wa_reply_rate = round(_wa_replied / _wa_sent * 100, 1) if _wa_sent > 0 else 0.0
+
     return {
         # A
         "total_leads":              actual_total,
@@ -509,12 +532,12 @@ def compute_all_kpis(df: pd.DataFrame, data: dict = None) -> dict:
         "assigned_leads":           actual_total,
         "total_engaged":            total_engaged(df),
         "indian_vs_intl":           indian_vs_international(df),
-        # B
-        "wa_sent":                  wa_sent(df),
-        "wa_replied":               wa_replied(df),
-        "wa_no_reply":              wa_no_reply(df),
+        # B — WA from source sheet directly
+        "wa_sent":                  _wa_sent,
+        "wa_replied":               _wa_replied,
+        "wa_no_reply":              _wa_no_reply,
         "wa_moved_to_arrowhead":    wa_moved_to_arrowhead(df),
-        "wa_reply_rate":            wa_reply_rate(df),
+        "wa_reply_rate":            _wa_reply_rate,
         "followup_active":          followup_active_count(df),
         "overdue_followups":        len(overdue_followups_df(df)),
         "third_touch_sent":         third_touch_sent(df),
