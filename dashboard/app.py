@@ -469,7 +469,7 @@ def main():
         views.render_channel_performance(filtered_df)
 
     with tabs[idx["💬 WhatsApp"]]:
-        views.render_followup_performance(filtered_df, kpis, role=role)
+        views.render_followup_performance(filtered_df, kpis, role=role, data=data)
 
     with tabs[idx["📞 Calling"]]:
         views.render_calling_performance(filtered_df, kpis)

@@ -315,7 +315,7 @@ def render_channel_performance(df: pd.DataFrame):
 # SECTION 4 — WHATSAPP / FOLLOW-UP PERFORMANCE
 # =============================================================================
 
-def render_followup_performance(df: pd.DataFrame, kpis: dict, role: str = "user"):
+def render_followup_performance(df: pd.DataFrame, kpis: dict, role: str = "user", data: dict = None):
     st.markdown("### 💬 Periskope First Touch & Follow-up Performance")
 
     # --- First Touch + Second Touch + Overall cards ---
@@ -389,25 +389,117 @@ def render_followup_performance(df: pd.DataFrame, kpis: dict, role: str = "user"
             _chart_layout(fig)
             st.plotly_chart(fig, use_container_width=True)
 
-    # Project-wise WA performance
-    if "project" in df.columns and "wa_replied" in df.columns:
-        st.markdown("**Project-wise WhatsApp Performance**")
+    # Project-wise WA performance — using assigned_leads for project mapping
+    st.markdown("**Project-wise WhatsApp Performance (First + Second Touch Combined)**")
+
+    # Get project mapping from data if available
+    wa_raw  = data.get("periskope_first_touch") if data else None
+    fu_raw  = data.get("followup_tracker") if data else None
+    al_raw  = data.get("assigned_leads") if data else None
+
+    if al_raw is not None and not al_raw.empty and "project" in al_raw.columns and "phone_norm" in al_raw.columns:
+        proj_map = al_raw[["phone_norm","project"]].dropna().drop_duplicates("phone_norm").set_index("phone_norm")["project"]
+
+        rows = []
+        # First touch
+        if wa_raw is not None and "phone_norm" in wa_raw.columns:
+            for _, r in wa_raw.iterrows():
+                proj = proj_map.get(r.get("phone_norm",""), "Unknown")
+                replied = r.get("replied") is True or str(r.get("replied","")).lower() in {"true","yes","1"}
+                rows.append({"project": proj, "touch": "First Touch", "replied": replied})
+        # Second touch
+        if fu_raw is not None and "phone_norm" in fu_raw.columns:
+            for _, r in fu_raw.iterrows():
+                proj = proj_map.get(r.get("phone_norm",""), "Unknown")
+                replied = r.get("replied") is True or str(r.get("replied","")).lower() in {"true","yes","1"}
+                rows.append({"project": proj, "touch": "Second Touch", "replied": replied})
+
+        if rows:
+            import pandas as _pd
+            comb = _pd.DataFrame(rows)
+            proj_grp = comb.groupby(["project","touch"]).agg(
+                sent=("replied","count"),
+                replied=("replied","sum"),
+            ).reset_index()
+            proj_grp["not_replied"] = proj_grp["sent"] - proj_grp["replied"]
+            proj_grp["reply_rate"] = (proj_grp["replied"] / proj_grp["sent"] * 100).round(1)
+
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
+                fig = px.bar(
+                    proj_grp, x="project", y="sent", color="touch",
+                    barmode="group",
+                    color_discrete_map={"First Touch": "#1f6feb", "Second Touch": "#3fb950"},
+                    title="WA Sent by Project (First + Second Touch)",
+                    text="sent",
+                )
+                fig.update_traces(textposition="outside")
+                _chart_layout(fig)
+                st.plotly_chart(fig, use_container_width=True)
+            with col_p2:
+                fig2 = px.bar(
+                    proj_grp, x="project", y="reply_rate", color="touch",
+                    barmode="group",
+                    color_discrete_map={"First Touch": "#d29922", "Second Touch": "#bc8cff"},
+                    title="Reply Rate % by Project",
+                    text="reply_rate",
+                )
+                fig2.update_traces(texttemplate="%{text}%", textposition="outside")
+                _chart_layout(fig2)
+                st.plotly_chart(fig2, use_container_width=True)
+    elif "project" in df.columns and "wa_replied" in df.columns:
+        # Fallback to merged df
         proj_wa = df.groupby("project").agg(
             total=("phone_norm", "count"),
             replied=("wa_replied", lambda x: x.apply(lambda v: v is True).sum()),
         ).reset_index()
         proj_wa["not_replied"] = proj_wa["total"] - proj_wa["replied"]
-        proj_wa["reply_rate"] = (proj_wa["replied"] / proj_wa["total"] * 100).round(1)
-        fig = px.bar(
-            proj_wa, x="project", y=["replied", "not_replied"],
-            barmode="stack",
-            color_discrete_map={"replied": "#00e676", "not_replied": "#ff5252"},
-            title="WA Replied vs No Reply by Project",
-            text_auto=True,
-        )
-        fig.update_traces(hovertemplate="<b>%{x}</b><br>%{fullData.name}: %{y}<extra></extra>")
+        fig = px.bar(proj_wa, x="project", y=["replied","not_replied"], barmode="stack",
+            color_discrete_map={"replied":"#3fb950","not_replied":"#f85149"},
+            title="WA Replied vs No Reply by Project")
         _chart_layout(fig)
         st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+
+    # --- Expanded Followup Breakdown ---
+    st.markdown("**📋 Follow-up Detailed Breakdown**")
+    if fu_raw is not None and not fu_raw.empty:
+        import pandas as _pd
+        fu_work = fu_raw.copy()
+        fu_work["followup_count"] = _pd.to_numeric(fu_work.get("followup_count", 0), errors="coerce").fillna(0).astype(int)
+
+        total_fu   = len(fu_work)
+        replied_fu = int((fu_work["replied"] == True).sum()) if "replied" in fu_work.columns else 0
+        waiting_fu = int((fu_work.get("status","") == "waiting").sum()) if "status" in fu_work.columns else 0
+        inprog_fu  = int((fu_work.get("status","") == "in_progress").sum()) if "status" in fu_work.columns else 0
+        stopped_fu = int((fu_work.get("status","") == "stopped_replied").sum()) if "status" in fu_work.columns else 0
+
+        f1, f2, f3, f4, f5 = st.columns(5)
+        with f1: kpi_card("Total in Followup", total_fu, info="Anandita Following Up sheet mein total leads.")
+        with f2: kpi_card("Replied", replied_fu, sub=f"{round(replied_fu/total_fu*100,1)}% reply rate", delta_type="up", info="Replied = True in followup sheet.")
+        with f3: kpi_card("Waiting (Next FU)", waiting_fu, info="Status = 'waiting' — next followup scheduled.")
+        with f4: kpi_card("In Progress", inprog_fu, info="Status = 'in_progress' — followup being sent.")
+        with f5: kpi_card("Stopped (Replied)", stopped_fu, info="Status = 'stopped_replied' — lead ne reply kiya, followup band.")
+
+        # Followup count distribution chart
+        fu_dist = fu_work.groupby("followup_count").size().reset_index()
+        fu_dist.columns = ["Followup Count", "No. of Leads"]
+        fu_dist = fu_dist[fu_dist["Followup Count"] > 0]  # exclude 0 count
+
+        if not fu_dist.empty:
+            fig_fu = px.bar(
+                fu_dist, x="Followup Count", y="No. of Leads",
+                color="No. of Leads",
+                color_continuous_scale=["#1f6feb","#3fb950"],
+                title="How Many Followups Each Lead Received",
+                text="No. of Leads",
+            )
+            fig_fu.update_traces(textposition="outside")
+            _chart_layout(fig_fu)
+            st.plotly_chart(fig_fu, use_container_width=True)
+    else:
+        st.info("Followup tracker data not available.")
 
     # Overdue follow-ups table — admin only
     overdue = overdue_followups_df(df)
