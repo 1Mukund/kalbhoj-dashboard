@@ -304,6 +304,43 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
 
     last_refresh = datetime.now(IST).strftime("%d %b %Y, %I:%M %p IST")
     st.sidebar.caption(f"Last refreshed: {last_refresh}")
+
+    # Dashboard Guide
+    st.sidebar.markdown("---")
+    if st.sidebar.button("📖 Dashboard Guide"):
+        st.session_state["show_guide"] = not st.session_state.get("show_guide", False)
+
+    if st.session_state.get("show_guide", False):
+        st.sidebar.markdown("""
+<div style="background:#21262d;border:1px solid #30363d;border-radius:10px;padding:14px;font-size:12px;color:#e6edf3;line-height:1.7">
+
+**📋 Kalbhoj Report**
+Daily aur Cumulative report — kitni leads assign hui, site visit booked/done, flat blocked, sale closure.
+
+**🔽 Funnel**
+Lead ka poora journey — assign se lekar booking tak. Har stage pe kitne leads hain.
+
+**📡 Channels**
+Leads kis channel (Executive) ko assign hui. Arrowhead = call connect rate, Periskope = WA reply rate.
+
+**💬 WhatsApp**
+First Touch (Periskope sheet) + Second Touch (Anandita sheet) ka breakdown. Project-wise aur status-wise.
+
+**📞 Calling**
+Arrowhead Automation Sheet se — kitne calls trigger hue, connected, not connected, duration.
+
+**🏠 Bookings**
+Alert log se — site visit / call scheduled leads. Project-wise booking breakdown.
+
+**🔍 Drilldown**
+Ek specific lead search karo — MLID, phone, ya naam se. Poori timeline dikhegi.
+
+**📊 Summary**
+Overall KPIs — total leads, WA sent, calls, engagement rate, daily trend.
+
+</div>
+        """, unsafe_allow_html=True)
+
     st.sidebar.markdown("---")
 
     st.sidebar.markdown("### Filters")

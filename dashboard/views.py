@@ -389,76 +389,61 @@ def render_followup_performance(df: pd.DataFrame, kpis: dict, role: str = "user"
             _chart_layout(fig)
             st.plotly_chart(fig, use_container_width=True)
 
-    # Project-wise WA performance — using assigned_leads for project mapping
-    st.markdown("**Project-wise WhatsApp Performance (First + Second Touch Combined)**")
+    # Project-wise WA performance — only first touch has project data
+    st.markdown("**Project-wise WhatsApp Performance (First Touch)**")
 
-    # Get project mapping from data if available
     wa_raw  = data.get("periskope_first_touch") if data else None
-    fu_raw  = data.get("followup_tracker") if data else None
     al_raw  = data.get("assigned_leads") if data else None
+    fu_raw  = data.get("followup_tracker") if data else None
 
     if al_raw is not None and not al_raw.empty and "project" in al_raw.columns and "phone_norm" in al_raw.columns:
-        proj_map = al_raw[["phone_norm","project"]].dropna().drop_duplicates("phone_norm").set_index("phone_norm")["project"]
+        import pandas as _pd
+        # Normalize project names to uppercase for consistent grouping
+        proj_map = al_raw[["phone_norm","project"]].dropna().drop_duplicates("phone_norm").copy()
+        proj_map["project"] = proj_map["project"].str.strip().str.upper()
+        proj_map = proj_map.set_index("phone_norm")["project"]
 
         rows = []
-        # First touch
         if wa_raw is not None and "phone_norm" in wa_raw.columns:
             for _, r in wa_raw.iterrows():
                 proj = proj_map.get(r.get("phone_norm",""), "Unknown")
                 replied = r.get("replied") is True or str(r.get("replied","")).lower() in {"true","yes","1"}
-                rows.append({"project": proj, "touch": "First Touch", "replied": replied})
-        # Second touch
-        if fu_raw is not None and "phone_norm" in fu_raw.columns:
-            for _, r in fu_raw.iterrows():
-                proj = proj_map.get(r.get("phone_norm",""), "Unknown")
-                replied = r.get("replied") is True or str(r.get("replied","")).lower() in {"true","yes","1"}
-                rows.append({"project": proj, "touch": "Second Touch", "replied": replied})
+                rows.append({"project": proj, "replied": replied})
 
         if rows:
-            import pandas as _pd
             comb = _pd.DataFrame(rows)
-            proj_grp = comb.groupby(["project","touch"]).agg(
+            proj_grp = comb.groupby("project").agg(
                 sent=("replied","count"),
                 replied=("replied","sum"),
             ).reset_index()
             proj_grp["not_replied"] = proj_grp["sent"] - proj_grp["replied"]
             proj_grp["reply_rate"] = (proj_grp["replied"] / proj_grp["sent"] * 100).round(1)
+            proj_grp = proj_grp[proj_grp["project"] != "Unknown"]
 
             col_p1, col_p2 = st.columns(2)
             with col_p1:
                 fig = px.bar(
-                    proj_grp, x="project", y="sent", color="touch",
-                    barmode="group",
-                    color_discrete_map={"First Touch": "#1f6feb", "Second Touch": "#3fb950"},
-                    title="WA Sent by Project (First + Second Touch)",
-                    text="sent",
+                    proj_grp, x="project", y=["replied","not_replied"],
+                    barmode="stack",
+                    color_discrete_map={"replied":"#3fb950","not_replied":"#f85149"},
+                    title="WA First Touch — Replied vs No Reply by Project",
+                    text_auto=True,
                 )
-                fig.update_traces(textposition="outside")
                 _chart_layout(fig)
                 st.plotly_chart(fig, use_container_width=True)
             with col_p2:
                 fig2 = px.bar(
-                    proj_grp, x="project", y="reply_rate", color="touch",
-                    barmode="group",
-                    color_discrete_map={"First Touch": "#d29922", "Second Touch": "#bc8cff"},
+                    proj_grp, x="project", y="reply_rate",
+                    color="reply_rate",
+                    color_continuous_scale=["#f85149","#d29922","#3fb950"],
                     title="Reply Rate % by Project",
                     text="reply_rate",
                 )
                 fig2.update_traces(texttemplate="%{text}%", textposition="outside")
                 _chart_layout(fig2)
                 st.plotly_chart(fig2, use_container_width=True)
-    elif "project" in df.columns and "wa_replied" in df.columns:
-        # Fallback to merged df
-        proj_wa = df.groupby("project").agg(
-            total=("phone_norm", "count"),
-            replied=("wa_replied", lambda x: x.apply(lambda v: v is True).sum()),
-        ).reset_index()
-        proj_wa["not_replied"] = proj_wa["total"] - proj_wa["replied"]
-        fig = px.bar(proj_wa, x="project", y=["replied","not_replied"], barmode="stack",
-            color_discrete_map={"replied":"#3fb950","not_replied":"#f85149"},
-            title="WA Replied vs No Reply by Project")
-        _chart_layout(fig)
-        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Project mapping not available.")
 
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
